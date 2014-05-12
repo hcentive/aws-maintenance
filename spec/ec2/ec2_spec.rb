@@ -36,7 +36,7 @@ describe AWS::Ec2 do
   end
 
   it "should start stopped instances due for startup in the 'techops' cost center" do
-    
+    #@ec2.start_instances(["techops"], ["dev"], true, false, false)
   end
 
 end
