@@ -12,7 +12,7 @@
 # 1) class Hash; include DeepSymbolizable; end
 # 2) myhash.extend DeepSymbolizable
 
-module Aws
+module AWS
   module DeepSymbolizable
 
     class Hash
@@ -65,4 +65,5 @@ module Aws
     end
   end
 end
-class Hash; include DeepSymbolizable; end
+
+class Hash; include AWS::DeepSymbolizable; end

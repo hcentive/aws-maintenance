@@ -1,10 +1,12 @@
-module Aws
+require 'aws/deep_symbolizable'
+
+module AWS
   class Configuration
 
     @_settings = {}
     attr_reader :_settings
 
-    DEAFULTS = {
+    DEFAULTS = {
       'logger' => {
         'home' => '/var/log/aws/',
         'file' => 'ec2.log'
@@ -38,7 +40,7 @@ module Aws
       newsets = newsets[options[:env].to_sym] if \
                                                  options[:env] && \
                                                  newsets[options[:env].to_sym]
-      deep_merge(@_settings, newsets)      
+      deep_merge(@_settings, newsets)
     end
 
     # Deep merging of hashes

@@ -1,6 +1,6 @@
 logger:
   home: "/var/log/aws/"
-  file: "ec2.log"
+  file: "ec2.log"  
 
 mail:
   administrator: "satyendra.sharma@hcentive.com"
