@@ -1,11 +1,14 @@
 require 'aws/deep_symbolizable'
 
 module AWS
+  # @author Satyendra Sharma <satyendra.sharma@hcentive.com>
+  # @api private
   class Configuration
 
-    @_settings = {}
+    # @return settings [Hash] Returns hash of settings.
     attr_reader :_settings
 
+    # Default configuration
     DEFAULTS = {
       'logger' => {
         'home' => '/var/log/aws/',
@@ -35,6 +38,9 @@ module AWS
       @_settings = DEFAULTS.deep_symbolize
     end
 
+    # Load configuration from YAML file.
+    # @param filename [String] Configuration file name
+    # @param options [Hash] Hash of options
     def load(filename, options = {})
       newsets = SafeYAML.load_file(filename).deep_symbolize
       newsets = newsets[options[:env].to_sym] if \
@@ -45,6 +51,8 @@ module AWS
 
     # Deep merging of hashes
     # deep_merge by Stefan Rusterholz, see http://www.ruby-forum.com/topic/142809
+    # @param target [Hash] target hash
+    # @param data [Hash] data hash to be merged in target
     def deep_merge(target, data)
       merger = proc{|key, v1, v2|
         Hash === v1 && Hash === v2 ? v1.merge(v2, &merger) : v2 }

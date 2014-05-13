@@ -3,10 +3,16 @@ require 'aws/configuration'
 require 'logger'
 
 module AWS
+  # @author Satyendra Sharma <satyendra.sharma@hcentive.com>
+  # Utility class to maintain EC2 instances
   class Ec2
+    # @return [Configuration] Returns configuration for the instance.
     attr_reader :config
+    # @return [Logger] Returns logger for this instance.
     attr_reader :logger
+    # @return Returns administrator's email address
     attr_reader :administrator
+
     @ec2 = nil
     @ses = nil
 
@@ -36,7 +42,11 @@ module AWS
       @ses = Aws::SES.new
     end
 
-    # list instances
+    # Returns a list of instances for a a list of cost centers and stacks.
+    # @param cost_center [Array] the list of cost centers e.g. ["techops", "phix", "hix"]
+    # @param stack [Array] the list of stacks for the cost center e.g. ["dev", "qa", "demo"]
+    # @param options [Hash] hash of options
+    # @return instances [Array] the list of instancs for the cost centers and stacks
     def list(cost_center, stack=nil, *options)
   		@logger.progname = "#{self.class.name}:#{__method__.to_s}"
   		@logger.info {"[Start] #{__method__.to_s}"}
@@ -73,6 +83,13 @@ module AWS
       instances
   	end
 
+    # Starts instances for the specified cost centers and stacks.
+    # @param cost_center [Array] the list of cost centers e.g. ["techops", "phix", "hix"]
+    # @param stack [Array] the list of stacks for the cost center e.g. ["dev", "qa", "demo"]
+    # @param dry_run [Boolean] dry run; default - false
+    # @param notify_owner [Boolean] send email notification to instance owner; default - true
+    # @param continue_on_error [Boolean] continue if one or more instances fail to start; default - true
+    # @param options [Hash] hash of options
     def start_instances(cost_center, stack=nil, dry_run=false, notify_owner=true, continue_on_error=true, *options)
   		@logger.progname = "#{self.class.name}:#{__method__.to_s}"
   		@logger.info {"[Start] #{__method__.to_s}"}
@@ -106,6 +123,13 @@ module AWS
       instances
   	end
 
+    # Stops instances for the specified cost centers and stacks.
+    # @param cost_center [Array] the list of cost centers e.g. ["techops", "phix", "hix"]
+    # @param stack [Array] the list of stacks for the cost center e.g. ["dev", "qa", "demo"]
+    # @param dry_run [Boolean] dry run; default - false
+    # @param notify_owner [Boolean] send email notification to instance owner; default - true
+    # @param continue_on_error [Boolean] continue if one or more instances fail to stop; default - true
+    # @param options [Hash] hash of options
     def stop_instances(cost_center, stack=nil, dry_run=false, notify_owner=true, continue_on_error=true, *options)
   		@logger.progname = "#{self.class.name}:#{__method__.to_s}"
   		@logger.info {"[Start] #{__method__.to_s}"}
@@ -139,6 +163,14 @@ module AWS
       instances
   	end
 
+    # Audits and creates missing instance tags for the specified cost centers and stacks.
+    # Tag names are defined in config.yml.
+    # @param cost_center [Array] the list of cost centers e.g. ["techops", "phix", "hix"]
+    # @param stack [Array] the list of stacks for the cost center e.g. ["dev", "qa", "demo"]
+    # @param dry_run [Boolean] dry run; default - false
+    # @param notify_owner [Boolean] send email notification to instance owner; default - true
+    # @param continue_on_error [Boolean] continue if one or more instances fail to stop; default - true
+    # @param options [Hash] hash of options
     def audit_tags(cost_center, stack=nil, dry_run=false, notify_owner=true, continue_on_error=true, *options)
   		@logger.progname = "#{self.class.name}:#{__method__.to_s}"
   		@logger.info {"[Start] #{__method__.to_s}"}
@@ -183,7 +215,9 @@ module AWS
 
     private
 
-    # describe_instances
+    # Describe EC2 instances.
+    # @param filters [Array] array of hashes to appy filters on
+    # @return resp [PageableResponse] {http://docs.aws.amazon.com/sdkforruby/api/Aws/PageableResponse.html Aws:PageableResponse} object
 		def desc_instances(filters)
 			begin
 				resp = @ec2.describe_instances(filters: filters)
@@ -195,8 +229,12 @@ module AWS
 			end
 		end
 
-    # Stops an instance
-		def stop_instance(instance, dryrun, notify)
+    # Stop an EC2 instance.
+    # @param instance [Instance] instance object
+    # @param dryrun [Boolean] dry run; default - false
+    # @param notify [Boolean] notify instance owner; default - true
+    # @return resp [PageableResponse] {http://docs.aws.amazon.com/sdkforruby/api/Aws/PageableResponse.html Aws:PageableResponse} object
+		def stop_instance(instance, dryrun=false, notify=true)
 			name = instance.tags.find{|tag| tag.key == "Name"}.value
 			@logger.info {"Stopping instance - #{name} (#{instance.instance_id})"}
 			resp = @ec2.stop_instances(dry_run: dryrun.to_s, instance_ids: [instance.instance_id])
@@ -209,7 +247,11 @@ module AWS
       resp
 		end
 
-    # Starts an instance
+    # Starts an instance.
+    # @param instance [Instance] instance object
+    # @param dryrun [Boolean] dry run; default - false
+    # @param notify [Boolean] notify instance owner; default - true
+    # @return resp [PageableResponse] {http://docs.aws.amazon.com/sdkforruby/api/Aws/PageableResponse.html Aws:PageableResponse} object
 		def start_instance(instance, dryrun, notify)
 			name = instance.tags.find{|tag| tag.key == "Name"}.value
 			@logger.info {"Starting instance - #{name} (#{instance.instance_id})"}
@@ -224,6 +266,11 @@ module AWS
 		end
 
     # Updates instance tags
+    # @param instance [Instance] instance object
+    # @param tags [Array] array of hashes containing name/value pairs for tags
+    # @param dryrun [Boolean] dry run; default - false
+    # @param notify [Boolean] notify instance owner; default - true
+    # @return resp [PageableResponse] {http://docs.aws.amazon.com/sdkforruby/api/Aws/PageableResponse.html Aws:PageableResponse} object
 		def tag_instance(instance, tags, dryrun, notify)
 			@logger.info {"Tagging instance - #{instance.instance_id} with - #{tags}"}
 			resp = @ec2.create_tags(dry_run: dryrun.to_s, resources: [instance.instance_id], tags: tags)
@@ -237,6 +284,9 @@ module AWS
 		end
 
     # Send email notification
+    # @param to [String] to address
+    # @param subject [String] email subject
+    # @param msg [String] email body
 		# TODO: use email templates
 		def send_notification(to, subject, msg)
 			to.each {|addr| addr << "@hcentive.com" unless addr.end_with?("@hcentive.com")}

@@ -13,6 +13,7 @@
 # 2) myhash.extend DeepSymbolizable
 
 module AWS
+  # @api private
   module DeepSymbolizable
 
     class Hash
