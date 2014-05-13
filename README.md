@@ -1,6 +1,6 @@
 # aws-maintenance
 
-TODO: Write a gem description
+Maintenance utility for AWS services
 
 ## Installation
 
@@ -16,14 +16,18 @@ Or install it yourself as:
 
     $ gem install aws-maintenance
 
+## Configuration
+
+TODO: Write configuration instructions here
+
 ## Usage
 
 TODO: Write usage instructions here
 
 ## Contributing
 
-1. Fork it ( http://github.com/<my-github-username>/aws-maintenance/fork )
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+1. Fork it ( https://git.demo.hcentive.com/aws-maintenance )
+2. Create your feature branch (`git checkout -b s3`)
+3. Commit your changes (`git commit -am 'Added s3 support'`)
+4. Push to the branch (`git push origin s3`)
+5. Create new [code review](https://hcentive.jira.com/wiki/display/TECHOPS/Code+review+with+Phabricator)
