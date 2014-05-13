@@ -7,3 +7,6 @@ require 'aws/configuration'
 require 'aws/deep_symbolizable'
 require 'aws/ec2'
 require "aws/version"
+
+module AWS
+end

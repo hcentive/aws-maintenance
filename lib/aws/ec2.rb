@@ -50,7 +50,6 @@ module AWS
 
       instances = []
 
-  		# list instances
   		resp.reservations.each do |reservation|
   			reservation.instances.each do |instance|
   				begin
@@ -84,13 +83,15 @@ module AWS
 
   		resp = desc_instances(filters)
 
+      instances = []
+
   		#start each instance that has "StartTime" tag value for the past hour
   		resp.reservations.each do |reservation|
   			reservation.instances.each do |instance|
   				begin
   					starttime = instance.tags.find{|tag| tag.key == "#{@config.aws[:tags][:start_time]}"}.value
   					if !starttime.nil? and Time.parse(starttime) >= Time.now then
-							start_instance(instance, dry_run, notify_owner)
+							instances << start_instance(instance, dry_run, notify_owner)
   					end
   				rescue Aws::Errors::ServiceError => e
   					@logger.error e
@@ -102,6 +103,7 @@ module AWS
   		end
   		send_notification([@administrator], "#{@logger.progname} run complete", "#{@logger.progname} run ended at #{Time.now}") unless @administrator.nil?
   		@logger.info {"[Stop] #{__method__.to_s}"}
+      instances
   	end
 
     def stop_instances(cost_center, stack=nil, dry_run=false, notify_owner=true, continue_on_error=true, *options)
@@ -114,13 +116,15 @@ module AWS
 
   		resp = desc_instances(filters)
 
+      instances = []
+
   		#stop each instance that has "stoptime" tag value for the next hour
   		resp.reservations.each do |reservation|
   			reservation.instances.each do |instance|
   				begin
   					stoptime = instance.tags.find{|tag| tag.key == "#{@config.aws[:tags][:stop_time]}"}.value
   					if !stoptime.nil? and Time.parse(stoptime) < Time.now + @config.aws[:shutdown_pre] then
-							stop_instance(instance, dry_run, notify_owner)
+							instances << stop_instance(instance, dry_run, notify_owner)
   					end
   				rescue Aws::Errors::ServiceError => e
   					@logger.error e
@@ -132,6 +136,49 @@ module AWS
   		end
   		send_notification([@administrator], "#{@logger.progname} run complete", "#{@logger.progname} run ended at #{Time.now}")
   		@logger.info {"[Stop] #{__method__.to_s}"}
+      instances
+  	end
+
+    def audit_tags(cost_center, stack=nil, dry_run=false, notify_owner=true, continue_on_error=true, *options)
+  		@logger.progname = "#{self.class.name}:#{__method__.to_s}"
+  		@logger.info {"[Start] #{__method__.to_s}"}
+
+  		# look up instances
+  		filters = Array.new
+  		filters << {name: "tag:#{@config.aws[:tags][:cost_center]}", values: cost_center}
+      filters << {name: "tag:#{@config.aws[:tags][:stack]}", values: stack} unless stack.nil?
+
+  		resp = desc_instances(filters)
+
+      tagged_instances = []
+
+  		update_tags = false
+
+  		resp.reservations.each do |reservation|
+  			reservation.instances.each do |instance|
+  				begin
+  					tags = Array.new
+  					@config.aws[:tags].each do |k, v|
+  						update_tags = true if instance.tags.find{|tag| tag.key == v}.nil?
+  						val = instance.tags.find{|tag| tag.key == v}.nil? ? "" : instance.tags.find{|tag| tag.key == v}.value
+  						tags << {key: v, value: val}
+  					end
+  					if update_tags then
+							tagged_instances << tag_instance(instance, tags, dry_run, notify_owner)
+  					end
+  				rescue Aws::Errors::ServiceError => e
+  					@logger.error e
+  					e.backtrace.each { |line| @logger.error line }
+  					send_notification([@administrator], "#{@logger.progname} failed", "audit_tags failed - #{e.message} \n\n#{e.backtrace}.")
+            raise e unless continue_on_error
+  				ensure
+  					update_tags = false
+  				end
+  			end
+  		end
+
+  		@logger.info {"[Stop] #{__method__.to_s}"}
+      tagged_instances
   	end
 
     private
@@ -152,38 +199,41 @@ module AWS
 		def stop_instance(instance, dryrun, notify)
 			name = instance.tags.find{|tag| tag.key == "Name"}.value
 			@logger.info {"Stopping instance - #{name} (#{instance.instance_id})"}
-			@ec2.stop_instances(dry_run: dryrun.to_s, instance_ids: [instance.instance_id])
+			resp = @ec2.stop_instances(dry_run: dryrun.to_s, instance_ids: [instance.instance_id])
 			if notify then
 				owner = instance.tags.find{|tag| tag.key == "#{@config.aws[:tags][:owner]}"}.value.to_s
 				msg_id = send_notification([owner, @administrator], "Instance stopped - #{instance.instance_id}",
 				"Dear #{owner},\n\nYour instance (#{name}) has been stopped.\n\nRegards,\nTechOps")
 				@logger.info {"Notified owner #{owner}; message id - #{msg_id.data.message_id.to_s}"}
 			end
+      resp
 		end
 
     # Starts an instance
 		def start_instance(instance, dryrun, notify)
 			name = instance.tags.find{|tag| tag.key == "Name"}.value
 			@logger.info {"Starting instance - #{name} (#{instance.instance_id})"}
-			@ec2.start_instances(dry_run: dryrun.to_s, instance_ids: [instance.instance_id])
+			resp = @ec2.start_instances(dry_run: dryrun.to_s, instance_ids: [instance.instance_id])
 			if notify then
 				owner = instance.tags.find{|tag| tag.key == "#{@config.aws[:tags][:owner]}"}.value.to_s
 				msg_id = send_notification([owner, @administrator], "Instance started - #{instance.instance_id}",
 				"Dear #{owner},\n\nYour instance (#{name}) has been started.\n\nRegards,\nTechOps")
 				@logger.info {"Notified owner #{owner}; message id - #{msg_id.data.message_id.to_s}"}
 			end
+      resp
 		end
 
     # Updates instance tags
 		def tag_instance(instance, tags, dryrun, notify)
 			@logger.info {"Tagging instance - #{instance.instance_id} with - #{tags}"}
-			@ec2.create_tags(dry_run: dryrun.to_s, resources: [instance.instance_id], tags: tags)
+			resp = @ec2.create_tags(dry_run: dryrun.to_s, resources: [instance.instance_id], tags: tags)
 			if notify && !instance.tags.find{|tag| tag.key == "owner"}.nil? && !instance.tags.find{|tag| tag.key == "owner"}.value.nil? then
 				owner = instance.tags.find{|tag| tag.key == "#{@config.aws[:tags][:owner]}"}.value.to_s
 				msg_id = send_notification([owner, @administrator], "Audit AWS Tags : instance tags updated - #{instance.instance_id}",
 				"Dear #{owner},\n\nTags for your instance (#{instance.instance_id}) have been updated.\n\nRegards,\nTechOps")
 				@logger.info {"Notified owner #{owner}; message id - #{msg_id.data.message_id.to_s}"}
 			end
+      resp
 		end
 
     # Send email notification
