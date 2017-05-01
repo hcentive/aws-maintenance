@@ -26,7 +26,7 @@ TODO: Write usage instructions here
 
 ## Contributing
 
-1. Fork it ( https://git.demo.hcentive.com/aws-maintenance )
+1. [Fork it] ( https://github.com/hcentive/aws-maintenance )
 2. Create your feature branch (`git checkout -b s3`)
 3. Commit your changes (`git commit -am 'Added s3 support'`)
 4. Push to the branch (`git push origin s3`)
